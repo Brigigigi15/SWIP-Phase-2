@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { getTableData } = require('./tableData');
 const { buildReportWorkbook } = require('./report');
 
@@ -67,8 +68,20 @@ app.get('/api/report', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
+// Health endpoint for Render
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Monitoring Phase-2 API' });
+});
+
+// Serve React build (client/dist) for all non-API routes
+const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
+app.use(express.static(clientBuildPath));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
