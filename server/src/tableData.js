@@ -301,11 +301,14 @@ function applyFilters(rows, filters) {
 
     const calendar = filters.calendar?.trim().toLowerCase();
     if (calendar === 'sent') {
+      // Only rows explicitly marked as Sent
       if (String(row['Calendar Status'] || '').trim().toLowerCase() !== 'sent') {
         return false;
       }
     } else if (calendar === 'invite_not_sent') {
-      if (String(row['Calendar Status'] || '').trim().toLowerCase() !== 'invite not sent') {
+      // Treat blank Calendar Status as part of "Calendar Not Sent"
+      const calVal = String(row['Calendar Status'] || '').trim().toLowerCase();
+      if (calVal !== 'invite not sent' && calVal !== '') {
         return false;
       }
     }

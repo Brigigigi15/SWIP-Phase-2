@@ -23,7 +23,7 @@ function StatCard({ label, value, accent, active = false, onClick }) {
   );
 }
 
-function Filters({ filters, options, onChange }) {
+function Filters({ filters, options, onChange, onReset }) {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     onChange({
@@ -34,8 +34,17 @@ function Filters({ filters, options, onChange }) {
 
   return (
     <div className="rounded-xl border border-slate-600 bg-slate-900/70 p-4 shadow-sm">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-300">
-        Filters
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+          Filters
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-[0.65rem] font-medium text-slate-300 hover:text-slate-50 hover:underline underline-offset-2"
+        >
+          Clear filters
+        </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <select
@@ -204,6 +213,20 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  const resetFilters = () => {
+    setFilters({
+      region: '',
+      installation: '',
+      final: '',
+      validated: '',
+      search: '',
+      includeUnscheduled: devFull,
+      starFilter: '',
+      calendarFilter: '',
+      lot: '',
+    });
+  };
+
   const buildParams = () => {
     const params = new URLSearchParams();
     if (filters.region) params.set('region', filters.region);
@@ -258,7 +281,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-900 pb-8">
       <header className="border-b border-slate-700 bg-slate-900/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+        <div className="flex w-full items-center justify-between px-4 py-3">
           <div>
             <h1 className="text-sm font-semibold text-slate-100">
               LEOxSOLAR Schedule Monitoring
@@ -277,9 +300,14 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto mt-4 max-w-7xl px-4 space-y-4">
+      <main className="mt-4 w-full px-4 space-y-4">
         <section>
-          <Filters filters={filters} options={options} onChange={setFilters} />
+          <Filters
+            filters={filters}
+            options={options}
+            onChange={setFilters}
+            onReset={resetFilters}
+          />
         </section>
 
         <section className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
