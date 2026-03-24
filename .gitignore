@@ -1,0 +1,21 @@
+# Node / React
+node_modules/
+npm-debug.log*
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+dist/
+build/
+.DS_Store
+
+# Environment / local config
+.env
+.env.local
+
+# Python / misc
+__pycache__/
+*.pyc
+
+# Service account JSON (do not commit credentials)
+monitoring-dashboard-485505-73f943f6722d.json
+
