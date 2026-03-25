@@ -3,11 +3,21 @@ const cors = require('cors');
 const path = require('path');
 const { getTableData } = require('./tableData');
 const { buildReportWorkbook } = require('./report');
+const { refreshUatStatus } = require('./googleDrive');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(cors());
+
+// Kick off periodic refresh of UAT Form status from Google Drive (hourly).
+(async () => {
+  await refreshUatStatus();
+  const ONE_HOUR = 60 * 60 * 1000;
+  setInterval(() => {
+    refreshUatStatus();
+  }, ONE_HOUR);
+})();
 
 function buildFiltersFromRequest(req) {
   return {
@@ -16,6 +26,7 @@ function buildFiltersFromRequest(req) {
     installation: req.query.installation || '',
     star: req.query.star || '',
     calendar: req.query.calendar || '',
+     uat: req.query.uat || '',
     tile: req.query.tile || '',
     lot: req.query.lot || '',
     final: req.query.final || '',

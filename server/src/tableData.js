@@ -1,4 +1,5 @@
 const { createSheetsClient } = require('./googleSheets');
+const { getUatStatusByBeis } = require('./googleDrive');
 
 // Spreadsheet IDs (Starlink activation + main schedule/outcome data)
 const SPREADSHEET_ID_STARLINK = '1XdByRZ3zYX5pfqEoufLXb3qnPTIh2rBmnfl4JzWoEbQ';
@@ -178,7 +179,8 @@ function buildStats(rows) {
       s1_success: 0,
       scheduled: 0,
       unscheduled: 0,
-      s1_vs_scheduled_pct: 0
+      s1_vs_scheduled_pct: 0,
+      uat_uploaded: 0
     };
   }
 
@@ -191,6 +193,7 @@ function buildStats(rows) {
   let s1Success = 0;
   let scheduled = 0;
   let unscheduled = 0;
+  let uatUploaded = 0;
 
   for (const row of rows) {
     const star = String(row['Starlink Status'] || '').trim().toLowerCase();
@@ -221,6 +224,10 @@ function buildStats(rows) {
       s1Success += 1;
     }
 
+    if (row._hasUatForm) {
+      uatUploaded += 1;
+    }
+
     if (sched) {
       scheduled += 1;
     } else {
@@ -245,7 +252,8 @@ function buildStats(rows) {
     s1_success: s1Success,
     scheduled,
     unscheduled,
-    s1_vs_scheduled_pct: s1VsScheduledPct
+    s1_vs_scheduled_pct: s1VsScheduledPct,
+    uat_uploaded: uatUploaded
   };
 }
 
@@ -309,6 +317,13 @@ function applyFilters(rows, filters) {
       // Treat blank Calendar Status as part of "Calendar Not Sent"
       const calVal = String(row['Calendar Status'] || '').trim().toLowerCase();
       if (calVal !== 'invite not sent' && calVal !== '') {
+        return false;
+      }
+    }
+
+    const uat = filters.uat?.trim().toLowerCase();
+    if (uat === 'uploaded') {
+      if (!row._hasUatForm) {
         return false;
       }
     }
@@ -394,6 +409,8 @@ async function getTableData(filters) {
     statusCalendar: colIndex('Status of Calendar')
   };
 
+  const uatStatusMap = getUatStatusByBeis();
+
   const mergedRows = rows.map((r) => {
     const beis = String(r[idx.beis] || '').trim();
     const starInfo = beis ? starByBeis.get(beis) : undefined;
@@ -410,6 +427,14 @@ async function getTableData(filters) {
 
     const scheduleSort = parseDateFlexible(schedule);
 
+    const uatInfo = beis ? uatStatusMap.get(beis) : undefined;
+    const hasUat = !!(uatInfo && uatInfo.hasContent);
+
+    let installationStatus = r[idx.outcome] || '';
+    if (hasUat) {
+      installationStatus = 'S1 - Installed (Success)';
+    }
+
     const row = {
       Region: r[idx.region] || '',
       Province: r[idx.province] || '',
@@ -418,7 +443,7 @@ async function getTableData(filters) {
       'Calendar Status': calendarStatus,
       'Start Time': r[idx.startTime] || '',
       'End Time': r[idx.endTime] || '',
-      'Installation Status': r[idx.outcome] || '',
+      'Installation Status': installationStatus,
       'Starlink Status': starInfo ? starInfo.status : '',
       Approval: starInfo ? starInfo.approval || 'Pending' : 'Pending',
       'Tp-link PHASE II': starInfo ? starInfo.tpLink || '' : '',
@@ -426,6 +451,7 @@ async function getTableData(filters) {
       'Final Status': '',
       'Validated?': '',
       Blocker: r[idx.blocker] || '',
+      _hasUatForm: hasUat,
       _scheduleSort: scheduleSort
     };
     return row;

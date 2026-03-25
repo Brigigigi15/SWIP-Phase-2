@@ -199,6 +199,7 @@ export default function App() {
     includeUnscheduled: devFull,
     starFilter: '',
     calendarFilter: '',
+    uatFilter: '',
     lot: '',
   });
   const [options, setOptions] = useState({
@@ -223,6 +224,7 @@ export default function App() {
       includeUnscheduled: devFull,
       starFilter: '',
       calendarFilter: '',
+      uatFilter: '',
       lot: '',
     });
   };
@@ -237,7 +239,8 @@ export default function App() {
     if (filters.includeUnscheduled) params.set('full', '1');
     if (filters.starFilter) params.set('star', filters.starFilter);
     if (filters.calendarFilter) params.set('calendar', filters.calendarFilter);
-     if (filters.lot) params.set('lot', filters.lot);
+    if (filters.uatFilter) params.set('uat', filters.uatFilter);
+    if (filters.lot) params.set('lot', filters.lot);
     return params;
   };
 
@@ -352,6 +355,18 @@ export default function App() {
                   prev.calendarFilter === 'invite_not_sent'
                     ? ''
                     : 'invite_not_sent',
+              }))
+            }
+          />
+          <StatCard
+            label="UAT Form Uploaded"
+            value={stats ? stats.uat_uploaded : '–'}
+            accent="text-teal-400"
+            active={filters.uatFilter === 'uploaded'}
+            onClick={() =>
+              setFilters((prev) => ({
+                ...prev,
+                uatFilter: prev.uatFilter === 'uploaded' ? '' : 'uploaded',
               }))
             }
           />

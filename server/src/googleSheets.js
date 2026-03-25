@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
+// Allow both Sheets read access and Drive read access (for UAT Form checks).
+const SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/drive.readonly'
+];
 
 function loadServiceAccount() {
   let raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -31,6 +35,6 @@ function createSheetsClient() {
 }
 
 module.exports = {
-  createSheetsClient
+  createSheetsClient,
+  loadServiceAccount
 };
-
