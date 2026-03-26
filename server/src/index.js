@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const { getTableData } = require('./tableData');
 const { buildReportWorkbook } = require('./report');
-const { refreshUatStatus } = require('./googleDrive');
+const { refreshUatStatus, getUatStatusByBeis } = require('./googleDrive');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -77,6 +77,18 @@ app.get('/api/report', async (req, res) => {
   } catch (err) {
     console.error('Error in /api/report', err);
     res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+// Force-refresh UAT Form status from Google Drive (manual trigger)
+app.post('/api/uat/refresh', async (req, res) => {
+  try {
+    await refreshUatStatus();
+    const map = getUatStatusByBeis();
+    res.json({ status: 'ok', count: map.size });
+  } catch (err) {
+    console.error('Error in /api/uat/refresh', err);
+    res.status(500).json({ error: 'Failed to refresh UAT status' });
   }
 });
 
