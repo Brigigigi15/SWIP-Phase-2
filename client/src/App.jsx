@@ -86,6 +86,20 @@ function Filters({ filters, options, onChange, onReset }) {
           ))}
         </select>
 
+        <select
+          name="approval"
+          value={filters.approval}
+          onChange={handleChange}
+          className="rounded-lg border border-slate-500 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-300"
+        >
+          <option value="">All Approvals</option>
+          {options.approvalOptions?.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+
         <input
           type="text"
           name="search"
@@ -193,6 +207,7 @@ export default function App() {
   const [filters, setFilters] = useState({
     region: '',
     installation: '',
+    approval: '',
     final: '',
     validated: '',
     search: '',
@@ -206,6 +221,7 @@ export default function App() {
     regionOptions: [],
     scheduleOptions: [],
     installationOptions: [],
+    approvalOptions: [],
     finalStatusOptions: [],
     validatedOptions: [],
   });
@@ -218,6 +234,7 @@ export default function App() {
     setFilters({
       region: '',
       installation: '',
+      approval: '',
       final: '',
       validated: '',
       search: '',
@@ -233,6 +250,7 @@ export default function App() {
     const params = new URLSearchParams();
     if (filters.region) params.set('region', filters.region);
     if (filters.installation) params.set('installation', filters.installation);
+    if (filters.approval) params.set('approval', filters.approval);
     if (filters.final) params.set('final', filters.final);
     if (filters.validated) params.set('validated', filters.validated);
     if (filters.search) params.set('search', filters.search);
@@ -261,6 +279,7 @@ export default function App() {
           regionOptions: res.data.regionOptions || [],
           scheduleOptions: res.data.scheduleOptions || [],
           installationOptions: res.data.installationOptions || [],
+          approvalOptions: res.data.approvalOptions || [],
           finalStatusOptions: res.data.finalStatusOptions || [],
           validatedOptions: res.data.validatedOptions || [],
         });

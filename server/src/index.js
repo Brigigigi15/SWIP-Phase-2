@@ -24,6 +24,7 @@ function buildFiltersFromRequest(req) {
     region: req.query.region || '',
     schedule: req.query.schedule || '',
     installation: req.query.installation || '',
+    approval: req.query.approval || '',
     star: req.query.star || '',
     calendar: req.query.calendar || '',
      uat: req.query.uat || '',

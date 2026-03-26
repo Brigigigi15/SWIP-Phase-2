@@ -160,6 +160,7 @@ function buildFilterOptions(rows) {
     regionOptions: setFromField('Region'),
     scheduleOptions: setFromField('Schedule'),
     installationOptions: setFromField('Installation Status'),
+    approvalOptions: setFromField('Approval (Accepted / Decline)'),
     finalStatusOptions: setFromField('Final Status'),
     validatedOptions: setFromField('Validated?')
   };
@@ -293,6 +294,11 @@ function applyFilters(rows, filters) {
 
     const installation = filters.installation?.trim();
     if (installation && String(row['Installation Status'] || '') !== installation) {
+      return false;
+    }
+
+    const approvalFilter = filters.approval?.trim();
+    if (approvalFilter && String(row['Approval (Accepted / Decline)'] || '') !== approvalFilter) {
       return false;
     }
 
@@ -507,6 +513,7 @@ async function getTableData(filters) {
     regionOptions,
     scheduleOptions,
     installationOptions,
+    approvalOptions,
     finalStatusOptions,
     validatedOptions
   } = buildFilterOptions(optionSourceRows);
@@ -516,6 +523,7 @@ async function getTableData(filters) {
     regionOptions,
     scheduleOptions,
     installationOptions,
+    approvalOptions,
     finalStatusOptions,
     validatedOptions,
     stats
