@@ -1,10 +1,24 @@
+const fs = require('fs');
+const path = require('path');
 const { google } = require('googleapis');
 const { loadServiceAccount } = require('./googleSheets');
 
-// Shared Drive ID for "iOne - DepED SWIP Project"
-// Root URL: https://drive.google.com/drive/u/0/folders/0ACdnecR8WwXiUk9PVA
-const SHARED_DRIVE_ID = '0ACdnecR8WwXiUk9PVA';
+// Cache of UAT Form folders to scan.
+// This file is generated once (offline) so we don't have to
+// discover all UAT Form folders on every refresh.
+const CACHE_FILE = path.join(__dirname, 'uatFoldersCache.json');
 
+let uatFoldersCache = [];
+
+try {
+  const raw = fs.readFileSync(CACHE_FILE, 'utf8');
+  uatFoldersCache = JSON.parse(raw);
+  console.log(`Loaded ${uatFoldersCache.length} cached UAT Form folders`);
+} catch (err) {
+  console.error('Failed to load cached UAT folders', err.message || err);
+}
+
+// Map for status keyed by BEIS School ID
 let uatStatusByBeis = new Map();
 
 function createDriveClient() {
@@ -18,108 +32,124 @@ function createDriveClient() {
   return google.drive({ version: 'v3', auth });
 }
 
-async function listAllUatFolders(drive) {
-  const folders = [];
-  let pageToken = undefined;
+// Simple concurrency helper
+async function asyncPool(limit, items, fn) {
+  const ret = [];
+  const executing = [];
 
-  do {
-    const res = await drive.files.list({
-      q: "name = 'UAT Form' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-      // Use allDrives so the service account only needs
-      // access to the shared folder/items, not full
-      // shared drive membership.
-      corpora: 'allDrives',
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-      fields: 'nextPageToken, files(id, name, parents)',
-      pageSize: 1000,
-      pageToken
+  for (const item of items) {
+    const p = Promise.resolve().then(() => fn(item));
+    ret.push(p);
+    if (limit <= items.length) {
+      const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+      executing.push(e);
+      if (executing.length >= limit) {
+        await Promise.race(executing);
+      }
+    }
+  }
+
+  return Promise.all(ret);
+}
+
+// Refresh UAT status by checking only the known UAT Form folders
+async function refreshUatStatus() {
+  uatStatusByBeis = new Map();
+
+  if (!uatFoldersCache.length) {
+    console.warn('No UAT folders in cache; skipping Drive scan');
+    return uatStatusByBeis;
+  }
+
+  const drive = createDriveClient();
+  const total = uatFoldersCache.length;
+  let checked = 0;
+
+  const enrichedFolders = [];
+
+  await asyncPool(20, uatFoldersCache, async (folder) => {
+    const parentFolderId = folder.parentId;
+    if (!parentFolderId) return;
+
+    let parentFolderName = '';
+    let hasFiles = false;
+    let beisId = '';
+
+    try {
+      // Get parent folder name (e.g. "School Name - 123456")
+      const parentRes = await drive.files.get({
+        fileId: parentFolderId,
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      parentFolderName = parentRes.data.name || '';
+    } catch (err) {
+      console.error(
+        `Failed to get parent folder name for ${parentFolderId}:`,
+        err.message || err
+      );
+    }
+
+    if (parentFolderName) {
+      const match = parentFolderName.match(/-\s*([0-9A-Za-z]+)\s*$/);
+      if (match) {
+        beisId = match[1].trim();
+      }
+    }
+
+    try {
+      // Check UAT Form folder for files
+      const res = await drive.files.list({
+        q: `'${folder.id}' in parents and trashed = false`,
+        fields: 'files(id)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      hasFiles = (res.data.files || []).length > 0;
+    } catch (err) {
+      console.error(
+        `Failed to check UAT Form folder ${folder.id}:`,
+        err.message || err
+      );
+    }
+
+    enrichedFolders.push({
+      uatFormFolderId: folder.id,
+      parentFolderId,
+      parentFolderName,
+      hasFiles,
     });
 
-    const batch = res.data.files || [];
-    folders.push(...batch);
-    pageToken = res.data.nextPageToken || null;
-  } while (pageToken);
+    if (beisId) {
+      uatStatusByBeis.set(beisId, {
+        hasFiles,
+        parentFolderName,
+      });
+    }
 
-  return folders;
-}
-
-async function folderHasContent(drive, folderId) {
-  const res = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false`,
-    corpora: 'allDrives',
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-    fields: 'files(id)',
-    pageSize: 1
+    checked += 1;
+    if (checked % 50 === 0 || checked === total) {
+      console.log(`UAT scan progress: ${checked}/${total}`);
+    }
   });
-  const files = res.data.files || [];
-  return files.length > 0;
-}
 
-async function refreshUatStatus() {
+  // Save enriched JSON for reference / debugging
   try {
-    const drive = createDriveClient();
-
-    // Find all "UAT Form" folders under the shared drive.
-    const uatFolders = await listAllUatFolders(drive);
-
-    const parentIdSet = new Set();
-    for (const f of uatFolders) {
-      const parents = f.parents || [];
-      if (parents.length) {
-        parentIdSet.add(parents[0]);
-      }
-    }
-
-    const parentIdToBeis = new Map();
-    for (const parentId of parentIdSet) {
-      try {
-        const res = await drive.files.get({
-          fileId: parentId,
-          fields: 'id, name',
-          supportsAllDrives: true
-        });
-        const name = res.data.name || '';
-        const match = name.match(/-\s*([0-9A-Za-z]+)\s*$/);
-        if (match) {
-          const beisId = match[1].trim();
-          if (beisId) {
-            parentIdToBeis.set(parentId, beisId);
-          }
-        }
-      } catch (err) {
-        // Ignore individual failures; continue with others.
-        console.error('Failed to resolve school folder for parent', parentId, err.message || err);
-      }
-    }
-
-    const nextMap = new Map();
-
-    for (const folder of uatFolders) {
-      const parents = folder.parents || [];
-      if (!parents.length) continue;
-      const parentId = parents[0];
-      const beisId = parentIdToBeis.get(parentId);
-      if (!beisId) continue;
-
-      try {
-        const hasContent = await folderHasContent(drive, folder.id);
-        if (hasContent) {
-          nextMap.set(beisId, { hasContent: true });
-        } else if (!nextMap.has(beisId)) {
-          nextMap.set(beisId, { hasContent: false });
-        }
-      } catch (err) {
-        console.error('Failed to check contents for UAT folder', folder.id, err.message || err);
-      }
-    }
-
-    uatStatusByBeis = nextMap;
-    console.log('Refreshed UAT Form status for', uatStatusByBeis.size, 'schools');
+    const outputFile = path.join(__dirname, 'uatFoldersCacheEnriched.json');
+    fs.writeFileSync(
+      outputFile,
+      JSON.stringify(enrichedFolders, null, 2),
+      'utf8'
+    );
+    console.log(
+      `Enriched UAT folder metadata saved to ${outputFile} (BEIS entries: ${uatStatusByBeis.size})`
+    );
   } catch (err) {
-    console.error('Failed to refresh UAT status from Drive', err.message || err);
+    console.error('Failed to write enriched UAT cache', err.message || err);
   }
+
+  return uatStatusByBeis;
 }
 
 function getUatStatusByBeis() {
@@ -128,5 +158,6 @@ function getUatStatusByBeis() {
 
 module.exports = {
   refreshUatStatus,
-  getUatStatusByBeis
+  getUatStatusByBeis,
 };
+

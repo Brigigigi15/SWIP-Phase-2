@@ -285,7 +285,7 @@ export default function App() {
       setStats(res.data.stats || null);
       setLastUpdated(res.data.lastUpdated || null);
     } catch (err) {
-      console.error('Failed to force UAT refresh', err);
+      console.error('Failed to Force Refresh', err);
     }
   };
 
@@ -418,37 +418,33 @@ export default function App() {
         </section>
 
         <section className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-              Sites
-            </h2>
-            <div className="flex items-center gap-2">
-              {loading && (
-                <span className="text-[0.65rem] text-slate-400">
-                  Loading latest dataâ€¦
-                </span>
-              )}
-              {(devFull || devReport) && (
-                <button
-                  type="button"
-                  onClick={handleForceUatRefresh}
-                  className="rounded-lg border border-teal-500 bg-teal-600/90 px-3 py-1 text-[0.7rem] font-medium text-
-  slate-50 shadow-sm hover:bg-teal-500"
-                >
-                  Force UAT refresh
-                </button>
-              )}
-              {devReport && (
-                <button
-                  type="button"
-                  onClick={handleDownloadReport}
-                  className="rounded-lg border border-indigo-500 bg-indigo-600/90 px-3 py-1 text-[0.7rem] font-medium
-  text-slate-50 shadow-sm hover:bg-indigo-500"
-                >
-                  Download report (XLSX)
-                </button>
-              )}
-            </div>
-          </section>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+            Sites
+          </h2>
+          <div className="flex items-center gap-2">
+            {loading && (
+              <span className="text-[0.65rem] text-slate-400">
+                Loading latest data�
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleForceUatRefresh}
+              className="rounded-lg border border-teal-500 bg-teal-600/90 px-3 py-1 text-[0.7rem] font-medium text-slate-50 shadow-sm hover:bg-teal-500"
+            >
+              Force Refresh
+            </button>
+            {devReport && (
+              <button
+                type="button"
+                onClick={handleDownloadReport}
+                className="rounded-lg border border-indigo-500 bg-indigo-600/90 px-3 py-1 text-[0.7rem] font-medium text-slate-50 shadow-sm hover:bg-indigo-500"
+              >
+                Download report (XLSX)
+              </button>
+            )}
+          </div>
+        </section>
 
         {/* <section className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
@@ -477,3 +473,5 @@ export default function App() {
     </div>
   );
 }
+
+

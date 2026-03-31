@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --ignore src/uatFoldersCache.json --ignore src/uatFoldersCacheEnriched.json src/index.js",
     "start": "node src/index.js"
   },
   "dependencies": {
