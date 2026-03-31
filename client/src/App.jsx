@@ -287,6 +287,7 @@ export default function App() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [forceRefreshing, setForceRefreshing] = useState(false);
 
   const resetFilters = () => {
     setFilters({
@@ -334,6 +335,7 @@ export default function App() {
 
   const handleForceUatRefresh = async () => {
     try {
+      setForceRefreshing(true);
       await axios.post('/api/uat/refresh');
       const params = buildParams();
       const res = await axios.get(`/api/dashboard?${params.toString()}`);
@@ -350,6 +352,8 @@ export default function App() {
       setLastUpdated(res.data.lastUpdated || null);
     } catch (err) {
       console.error('Failed to Force Refresh', err);
+    } finally {
+      setForceRefreshing(false);
     }
   };
 
@@ -494,9 +498,13 @@ export default function App() {
             <button
               type="button"
               onClick={handleForceUatRefresh}
-              className="rounded-lg border border-teal-500 bg-teal-600/90 px-3 py-1 text-[0.7rem] font-medium text-slate-50 shadow-sm hover:bg-teal-500"
+              disabled={forceRefreshing}
+              className="inline-flex items-center gap-1 rounded-lg border border-teal-500 bg-teal-600/90 px-3 py-1 text-[0.7rem] font-medium text-slate-50 shadow-sm hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Force Refresh
+              {forceRefreshing && (
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-[2px] border-slate-100 border-t-transparent" />
+              )}
+              <span>{forceRefreshing ? 'Refreshing…' : 'Force Refresh'}</span>
             </button>
             {devReport && (
               <button
