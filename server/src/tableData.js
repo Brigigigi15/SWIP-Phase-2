@@ -576,10 +576,31 @@ async function loadStarlink() {
   const { header, rows } = await loadSheet(SPREADSHEET_ID_STARLINK, 'Master');
   if (!header.length) return [];
 
+  // Column T should be "Phase II - Approval (Accepted / Decline)".
+  // We try several possible header texts, then fall back to index 19 (T)
+  // if the header name cannot be found but the sheet has enough columns.
+  const approvalHeaderCandidates = [
+    'Phase II - Approval (Accepted / Decline)',
+    'Approval (Accepted / Decline)',
+    'Approval (Accepted / Decline) '
+  ];
+  let approvalIdx = -1;
+  for (const name of approvalHeaderCandidates) {
+    const idx = header.indexOf(name);
+    if (idx !== -1) {
+      approvalIdx = idx;
+      break;
+    }
+  }
+  if (approvalIdx === -1 && header.length > 19) {
+    approvalIdx = 19; // Column T (0‑based index)
+  }
+
   const idx = {
     beis: header.indexOf('BEIS School ID'),
     status: header.indexOf('Status of Activation'),
-    approval: header.indexOf('Approval (Accepted / Decline) ')
+    // Force Approval to read from column T (index 19) of the Starlink sheet.
+    approval: 19
   };
   const idxTpLink = header.indexOf('Tp-link PHASE II');
 

@@ -1,0 +1,6 @@
+{
+  "watch": ["src", "tableData.js", "googleDrive.js"], 
+  "ext": "js,json",
+  "ignore": ["node_modules", "uatFoldersCache.json", "uatFoldersCacheEnriched.json"],
+  "exec": "node server.js"
+}

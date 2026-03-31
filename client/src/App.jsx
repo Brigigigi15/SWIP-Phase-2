@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 function StatCard({ label, value, accent, active = false, onClick }) {
@@ -24,13 +24,34 @@ function StatCard({ label, value, accent, active = false, onClick }) {
 }
 
 function Filters({ filters, options, onChange, onReset }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     onChange({
       ...filters,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
+
+  const toggleSchedule = (value) => {
+    const current = Array.isArray(filters.schedule) ? filters.schedule : [];
+    const exists = current.includes(value);
+    const next = exists
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    onChange({
+      ...filters,
+      schedule: next,
+    });
+  };
+
+  const scheduleLabel =
+    !filters.schedule || filters.schedule.length === 0
+      ? "All Schedules"
+      : filters.schedule.length === 1
+      ? filters.schedule[0]
+      : `${filters.schedule.length} selected`;
 
   return (
     <div className="rounded-xl border border-slate-600 bg-slate-900/70 p-4 shadow-sm">
@@ -72,6 +93,7 @@ function Filters({ filters, options, onChange, onReset }) {
             </option>
           ))}
         </select>
+
         <select
           name="installation"
           value={filters.installation}
@@ -85,6 +107,41 @@ function Filters({ filters, options, onChange, onReset }) {
             </option>
           ))}
         </select>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setScheduleOpen((open) => !open)}
+            className="flex w-full items-center justify-between rounded-lg border border-slate-500 bg-slate-900 px-3 py-2 text-left text-sm text-slate-100 outline-none focus:border-indigo-300"
+          >
+            <span className="truncate">{scheduleLabel}</span>
+            <span className="ml-2 text-[0.6rem] text-slate-400">▼</span>
+          </button>
+          {scheduleOpen && (
+            <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 shadow-lg">
+              <div className="px-3 py-2 text-[0.65rem] text-slate-400">
+                Select schedules
+              </div>
+              {options.scheduleOptions.map((v) => (
+                <label
+                  key={v}
+                  className="flex cursor-pointer items-center gap-2 px-3 py-1 text-sm text-slate-100 hover:bg-slate-800"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3 rounded border-slate-500 bg-slate-900 text-indigo-500"
+                    checked={
+                      Array.isArray(filters.schedule) &&
+                      filters.schedule.includes(v)
+                    }
+                    onChange={() => toggleSchedule(v)}
+                  />
+                  <span className="truncate">{v}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         <select
           name="approval"
@@ -207,6 +264,7 @@ export default function App() {
   const [filters, setFilters] = useState({
     region: '',
     installation: '',
+    schedule: [],
     approval: '',
     final: '',
     validated: '',
@@ -234,6 +292,7 @@ export default function App() {
     setFilters({
       region: '',
       installation: '',
+      schedule: [],
       approval: '',
       final: '',
       validated: '',
@@ -250,6 +309,11 @@ export default function App() {
     const params = new URLSearchParams();
     if (filters.region) params.set('region', filters.region);
     if (filters.installation) params.set('installation', filters.installation);
+    if (filters.schedule && filters.schedule.length) {
+      filters.schedule.forEach((v) => {
+        params.append('schedule', v);
+      });
+    }
     if (filters.approval) params.set('approval', filters.approval);
     if (filters.final) params.set('final', filters.final);
     if (filters.validated) params.set('validated', filters.validated);
@@ -356,7 +420,7 @@ export default function App() {
         <section className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
           <StatCard
             label="Installed (S1 Success)"
-            value={stats ? stats.s1_success : '–'}
+            value={stats ? stats.s1_success : 'â€“'}
             accent="text-emerald-400"
             active={
               filters.installation.toLowerCase() === 's1 - installed (success)'
@@ -373,7 +437,7 @@ export default function App() {
           />
           <StatCard
             label="Calendar Sent"
-            value={stats ? stats.calendar_sent : '–'}
+            value={stats ? stats.calendar_sent : 'â€“'}
             accent="text-sky-400"
             active={filters.calendarFilter === 'sent'}
             onClick={() =>
@@ -385,7 +449,7 @@ export default function App() {
           />
           <StatCard
             label="Calendar Not Sent"
-            value={stats ? stats.calendar_not_sent : '–'}
+            value={stats ? stats.calendar_not_sent : 'â€“'}
             accent="text-amber-400"
             active={filters.calendarFilter === 'invite_not_sent'}
             onClick={() =>
@@ -400,7 +464,7 @@ export default function App() {
           />
           <StatCard
             label="UAT Form Uploaded"
-            value={stats ? stats.uat_uploaded : '–'}
+            value={stats ? stats.uat_uploaded : 'â€“'}
             accent="text-teal-400"
             active={filters.uatFilter === 'uploaded'}
             onClick={() =>
@@ -412,7 +476,7 @@ export default function App() {
           />
           <StatCard
             label="S1 vs Scheduled (%)"
-            value={stats ? stats.s1_vs_scheduled_pct : '–'}
+            value={stats ? stats.s1_vs_scheduled_pct : 'â€“'}
             accent="text-indigo-400"
           />
         </section>
@@ -424,7 +488,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {loading && (
               <span className="text-[0.65rem] text-slate-400">
-                Loading latest data�
+                Loading latest data…
               </span>
             )}
             <button
@@ -452,7 +516,7 @@ export default function App() {
           </h2>
           {loading && (
             <span className="text-[0.65rem] text-slate-400">
-              Loading latest data…
+              Loading latest dataâ€¦
             </span>
           )}
           {devReport && (
@@ -473,5 +537,15 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
 
 
