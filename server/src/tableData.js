@@ -876,8 +876,9 @@ async function getTableData(filters) {
     const hasUat = !!(uatInfo && uatInfo.hasFiles);
     const parentFolderName = uatInfo?.parentFolderName || '';
 
-    // Base installation status from outcome column
-    let installationStatus = r[idx.outcome] || '';
+    // Installation Status is now derived only from UAT + Tp-link PHASE II,
+    // no longer taken from the "Outcome Status" column.
+    let installationStatus = '';
     const tpPhase = starInfo && starInfo.tpLink
       ? String(starInfo.tpLink).trim().toLowerCase()
       : '';

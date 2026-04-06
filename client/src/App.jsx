@@ -451,21 +451,23 @@ export default function App() {
               }))
             }
           />
-          <StatCard
-            label="Calendar Not Sent"
-            value={stats ? stats.calendar_not_sent : 'â€“'}
-            accent="text-amber-400"
-            active={filters.calendarFilter === 'invite_not_sent'}
-            onClick={() =>
-              setFilters((prev) => ({
-                ...prev,
-                calendarFilter:
-                  prev.calendarFilter === 'invite_not_sent'
-                    ? ''
-                    : 'invite_not_sent',
-              }))
-            }
-          />
+          {devFull && (
+            <StatCard
+              label="Calendar Not Sent"
+              value={stats ? stats.calendar_not_sent : 'â€“'}
+              accent="text-amber-400"
+              active={filters.calendarFilter === 'invite_not_sent'}
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  calendarFilter:
+                    prev.calendarFilter === 'invite_not_sent'
+                      ? ''
+                      : 'invite_not_sent',
+                }))
+              }
+            />
+          )}
           {devFull && (
             <StatCard
               label="UAT Form Uploaded"
