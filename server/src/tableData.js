@@ -873,8 +873,21 @@ async function getTableData(filters) {
     const hasUat = !!(uatInfo && uatInfo.hasFiles);
     const parentFolderName = uatInfo?.parentFolderName || '';
 
+    // Base installation status from outcome column
     let installationStatus = r[idx.outcome] || '';
-    if (hasUat) installationStatus = 'S1 - Installed (Success)';
+    const tpPhase = starInfo && starInfo.tpLink
+      ? String(starInfo.tpLink).trim().toLowerCase()
+      : '';
+
+    // New logic:
+    // - If BEIS has UAT uploaded AND Tp-link PHASE II is "Installed" => "S1 - Installed (Success)"
+    // - If BEIS has UAT uploaded AND Tp-link PHASE II is "Ready to Deploy" =>
+    //   "Installed - (Incomplete Documents)"
+    if (hasUat && tpPhase === 'installed') {
+      installationStatus = 'S1 - Installed (Success)';
+    } else if (hasUat && tpPhase === 'ready to deploy') {
+      installationStatus = 'Installed - (Incomplete Documents)';
+    }
 
     return {
       Region: r[idx.region] || '',
