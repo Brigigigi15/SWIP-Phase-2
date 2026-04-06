@@ -466,18 +466,20 @@ export default function App() {
               }))
             }
           />
-          <StatCard
-            label="UAT Form Uploaded"
-            value={stats ? stats.uat_uploaded : 'â€“'}
-            accent="text-teal-400"
-            active={filters.uatFilter === 'uploaded'}
-            onClick={() =>
-              setFilters((prev) => ({
-                ...prev,
-                uatFilter: prev.uatFilter === 'uploaded' ? '' : 'uploaded',
-              }))
-            }
-          />
+          {devFull && (
+            <StatCard
+              label="UAT Form Uploaded"
+              value={stats ? stats.uat_uploaded : 'â€“'}
+              accent="text-teal-400"
+              active={filters.uatFilter === 'uploaded'}
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  uatFilter: prev.uatFilter === 'uploaded' ? '' : 'uploaded',
+                }))
+              }
+            />
+          )}
           <StatCard
             label="S1 vs Scheduled (%)"
             value={stats ? stats.s1_vs_scheduled_pct : 'â€“'}

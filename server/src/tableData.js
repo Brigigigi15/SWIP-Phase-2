@@ -736,7 +736,10 @@ function buildStats(rows) {
     if (cal === 'sent') calendarSent++;
     else if (cal === 'invite not sent' || cal === '') calendarNotSent++;
 
-    if (inst === 's1 - installed (success)') s1Success++;
+    // "Installed (S1 Success)" card should reflect any row whose
+    // INSTALLATION STATUS column contains the word "installed"
+    // (e.g. "S1 - Installed (Success)", "Installed - (Incomplete Documents)").
+    if (inst.includes('installed')) s1Success++;
     if (row._hasUatForm) uatUploaded++;
 
     if (sched) scheduled++; else unscheduled++;
