@@ -783,8 +783,20 @@ function applyFilters(rows, filters) {
       if (allowedRegions && !allowedRegions.has(String(row.Region || ''))) return false;
     }
 
-    const installation = filters.installation?.trim();
-    if (installation && String(row['Installation Status'] || '') !== installation) return false;
+    const installationRaw = filters.installation?.trim();
+    if (installationRaw) {
+      const instVal = String(row['Installation Status'] || '');
+      const instLower = instVal.trim().toLowerCase();
+      const installation = installationRaw.toLowerCase();
+
+      if (installation === 'installed') {
+        // Special group filter used by the "Installed (S1 Success)" card:
+        // include any row whose INSTALLATION STATUS contains "installed".
+        if (!instLower.includes('installed')) return false;
+      } else if (instVal !== installationRaw) {
+        return false;
+      }
+    }
 
     const approvalFilter = filters.approval?.trim();
     if (approvalFilter && String(row['Approval (Accepted / Decline)'] || '') !== approvalFilter) return false;

@@ -426,16 +426,14 @@ export default function App() {
             label="Installed (S1 Success)"
             value={stats ? stats.s1_success : 'â€“'}
             accent="text-emerald-400"
-            active={
-              filters.installation.toLowerCase() === 's1 - installed (success)'
-            }
+            active={filters.installation.toLowerCase() === 'installed'}
             onClick={() =>
               setFilters((prev) => ({
                 ...prev,
                 installation:
-                  prev.installation.toLowerCase() === 's1 - installed (success)'
+                  prev.installation.toLowerCase() === 'installed'
                     ? ''
-                    : 'S1 - Installed (Success)',
+                    : 'installed',
               }))
             }
           />
