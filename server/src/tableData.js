@@ -895,14 +895,14 @@ async function getTableData(filters) {
       ? String(starInfo.tpLink).trim().toLowerCase()
       : '';
 
-    // New logic:
-    // - If BEIS has UAT uploaded AND Tp-link PHASE II is "Installed" => "S1 - Installed (Success)"
-    // - If BEIS has UAT uploaded AND Tp-link PHASE II is "Ready to Deploy" =>
-    //   "Installed - (Incomplete Documents)"
+    // Installation Status is derived from Tp-link PHASE II, with UAT only
+    // determining the success case for fully installed sites.
     if (hasUat && tpPhase === 'installed') {
       installationStatus = 'S1 - Installed (Success)';
-    } else if (hasUat && tpPhase === 'ready to deploy') {
-      installationStatus = 'Installed - (Incomplete Documents)';
+    } else if (tpPhase === 'upload uat') {
+      installationStatus = 'Installed - (Incomplete Document)';
+    } else if (tpPhase === 'ready to deploy') {
+      installationStatus = 'Not yet Installed';
     }
 
     return {

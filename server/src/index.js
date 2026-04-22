@@ -54,7 +54,8 @@ app.get('/api/dashboard', async (req, res) => {
 app.get('/api/report', async (req, res) => {
   try {
     const filters = buildFiltersFromRequest(req);
-    const workbook = await buildReportWorkbook(filters);
+    const columns = req.query.column;
+    const workbook = await buildReportWorkbook(filters, columns);
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');

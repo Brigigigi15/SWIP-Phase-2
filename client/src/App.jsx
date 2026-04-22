@@ -1,6 +1,19 @@
 ﻿import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const TABLE_COLUMNS = [
+  'Region',
+  'Province',
+  'BEIS School ID',
+  'Schedule',
+  'Calendar Status',
+  'Start Time',
+  'End Time',
+  'Installation Status',
+  'Tp-link PHASE II',
+  'Approval (Accepted / Decline)',
+];
+
 function StatCard({ label, value, accent, active = false, onClick }) {
   const baseClasses =
     'rounded-xl border p-4 shadow-sm cursor-pointer transition-colors duration-150';
@@ -171,19 +184,6 @@ function Filters({ filters, options, onChange, onReset }) {
 }
 
 function DataTable({ rows }) {
-  const columns = [
-    'Region',
-    'Province',
-    'BEIS School ID',
-    'Schedule',
-    'Calendar Status',
-    'Start Time',
-    'End Time',
-    'Installation Status',
-    'Tp-link PHASE II',
-    'Approval (Accepted / Decline)',
-  ];
-
   const columnClasses = {};
 
   return (
@@ -191,7 +191,7 @@ function DataTable({ rows }) {
       <table className="min-w-full text-center text-[0.7rem] sm:text-[0.8rem]">
         <thead className="sticky top-0 z-10 bg-indigo-600/90 text-[0.7rem] sm:text-[0.8rem] uppercase tracking-wide text-slate-50 border-b border-indigo-400 shadow-sm">
           <tr>
-            {columns.map((col) => (
+            {TABLE_COLUMNS.map((col) => (
               <th
                 key={col}
                 className={`px-2 py-1.5 font-semibold border-r border-indigo-500/70 last:border-r-0 first:rounded-tl-xl last:rounded-tr-xl whitespace-nowrap ${columnClasses[col] || ''}`}
@@ -207,7 +207,7 @@ function DataTable({ rows }) {
               key={idx}
               className={idx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-900'}
             >
-              {columns.map((col) => {
+              {TABLE_COLUMNS.map((col) => {
                 const value = row[col];
                 let colorClass = '';
 
@@ -243,7 +243,7 @@ function DataTable({ rows }) {
           {!rows.length && (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={TABLE_COLUMNS.length}
                 className="px-3 py-4 text-center text-xs text-slate-400"
               >
                 No rows to display.
@@ -329,6 +329,9 @@ export default function App() {
 
   const handleDownloadReport = () => {
     const params = buildParams();
+    TABLE_COLUMNS.forEach((column) => {
+      params.append('column', column);
+    });
     const url = `/api/report?${params.toString()}`;
     window.location.href = url;
   };
