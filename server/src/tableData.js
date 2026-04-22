@@ -736,10 +736,7 @@ function buildStats(rows) {
     if (cal === 'sent') calendarSent++;
     else if (cal === 'invite not sent' || cal === '') calendarNotSent++;
 
-    // "Installed (S1 Success)" card should reflect any row whose
-    // INSTALLATION STATUS column contains the word "installed"
-    // (e.g. "S1 - Installed (Success)", "Installed - (Incomplete Documents)").
-    if (inst.includes('installed')) s1Success++;
+    if (inst === 's1 - installed (success)') s1Success++;
     if (row._hasUatForm) uatUploaded++;
 
     if (sched) scheduled++; else unscheduled++;
@@ -790,9 +787,7 @@ function applyFilters(rows, filters) {
       const installation = installationRaw.toLowerCase();
 
       if (installation === 'installed') {
-        // Special group filter used by the "Installed (S1 Success)" card:
-        // include any row whose INSTALLATION STATUS contains "installed".
-        if (!instLower.includes('installed')) return false;
+        if (instLower !== 's1 - installed (success)') return false;
       } else if (instVal !== installationRaw) {
         return false;
       }
