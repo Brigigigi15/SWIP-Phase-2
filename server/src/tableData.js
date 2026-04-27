@@ -716,11 +716,12 @@ function buildStats(rows) {
     scheduled: 0,
     unscheduled: 0,
     s1_vs_scheduled_pct: 0,
-    uat_uploaded: 0
+    uat_uploaded: 0,
+    outcome_status_filled: 0
   };
 
   let starActivated = 0, starNotActivated = 0, approvalAccepted = 0, approvalDecline = 0;
-  let calendarSent = 0, calendarNotSent = 0, s1Success = 0, scheduled = 0, unscheduled = 0, uatUploaded = 0;
+  let calendarSent = 0, calendarNotSent = 0, s1Success = 0, scheduled = 0, unscheduled = 0, uatUploaded = 0, outcomeStatusFilled = 0;
 
   for (const row of rows) {
     const star = String(row['Starlink Status'] || '').trim().toLowerCase();
@@ -728,6 +729,7 @@ function buildStats(rows) {
     const cal = String(row['Calendar Status'] || '').trim().toLowerCase();
     const inst = String(row['Installation Status'] || '').trim().toLowerCase();
     const sched = String(row['Schedule'] || '').trim();
+    const outcome = String(row['Outcome Status (to be Accomplished by Supplier)'] || '').trim();
 
     if (star === 'activated') starActivated++; else starNotActivated++;
     if (appr.includes('accept')) approvalAccepted++;
@@ -736,8 +738,12 @@ function buildStats(rows) {
     if (cal === 'sent') calendarSent++;
     else if (cal === 'invite not sent' || cal === '') calendarNotSent++;
 
-    if (inst === 's1 - installed (success)') s1Success++;
+    if (
+      inst === 's1 - installed (success)' ||
+      inst === 'installed - (incomplete document)'
+    ) s1Success++;
     if (row._hasUatForm) uatUploaded++;
+    if (outcome) outcomeStatusFilled++;
 
     if (sched) scheduled++; else unscheduled++;
   }
@@ -759,7 +765,8 @@ function buildStats(rows) {
     scheduled,
     unscheduled,
     s1_vs_scheduled_pct: s1VsScheduledPct,
-    uat_uploaded: uatUploaded
+    uat_uploaded: uatUploaded,
+    outcome_status_filled: outcomeStatusFilled
   };
 }
 
@@ -787,7 +794,10 @@ function applyFilters(rows, filters) {
       const installation = installationRaw.toLowerCase();
 
       if (installation === 'installed') {
-        if (instLower !== 's1 - installed (success)') return false;
+        if (
+          instLower !== 's1 - installed (success)' &&
+          instLower !== 'installed - (incomplete document)'
+        ) return false;
       } else if (instVal !== installationRaw) {
         return false;
       }
@@ -808,6 +818,12 @@ function applyFilters(rows, filters) {
     const uat = filters.uat?.trim().toLowerCase();
     if (uat === 'uploaded' && !row._hasUatForm) return false;
 
+    const outcome = filters.outcome?.trim().toLowerCase();
+    const outcomeValue = String(
+      row['Outcome Status (to be Accomplished by Supplier)'] || ''
+    ).trim();
+    if (outcome === 'filled' && !outcomeValue) return false;
+
     const finalStatus = filters.final?.trim();
     if (finalStatus && String(row['Final Status'] || '') !== finalStatus) return false;
 
@@ -819,7 +835,8 @@ function applyFilters(rows, filters) {
       const haystack = [
         row.Region,row.Province,row['BEIS School ID'],row['Installation Status'],
         row['Starlink Status'],row['Tp-link PHASE II'],row['Approval (Accepted / Decline)'],
-        row['Final Status'],row['Validated?'],row.Blocker
+        row['Final Status'],row['Validated?'],row.Blocker,
+        row['Outcome Status (to be Accomplished by Supplier)']
       ].map(v => (v==null?'':String(v))).join(' ').toLowerCase();
       if (!haystack.includes(search)) return false;
     }
@@ -913,6 +930,7 @@ async function getTableData(filters) {
       Approval: starInfo ? starInfo.approval || 'Pending' : 'Pending',
       'Tp-link PHASE II': starInfo ? starInfo.tpLink || '' : '',
       'Approval (Accepted / Decline)': starInfo ? starInfo.approval || 'Pending' : 'Pending',
+      'Outcome Status (to be Accomplished by Supplier)': r[idx.outcome] || '',
       'Final Status': '',
       'Validated?': '',
       Blocker: r[idx.blocker] || '',

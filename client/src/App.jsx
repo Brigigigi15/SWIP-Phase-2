@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const TABLE_COLUMNS = [
+const BASE_TABLE_COLUMNS = [
   'Region',
   'Province',
   'BEIS School ID',
@@ -14,11 +14,18 @@ const TABLE_COLUMNS = [
   'Approval (Accepted / Decline)',
 ];
 
+const FULL_MODE_EXTRA_COLUMNS = [
+  'Outcome Status (to be Accomplished by Supplier)',
+];
+
 function StatCard({ label, value, accent, active = false, onClick }) {
+  const clickable = typeof onClick === 'function';
   const baseClasses =
-    'rounded-xl border p-4 shadow-sm cursor-pointer transition-colors duration-150';
+    'rounded-xl border p-4 shadow-sm transition-colors duration-150';
   const inactiveClasses =
-    'border-slate-600 bg-slate-900/60 hover:bg-slate-800/80 hover:border-slate-300';
+    clickable
+      ? 'cursor-pointer border-slate-600 bg-slate-900/60 hover:bg-slate-800/80 hover:border-slate-300'
+      : 'border-slate-600 bg-slate-900/60';
   const activeClasses = 'border-indigo-400 bg-slate-900/90 shadow-md';
 
   return (
@@ -183,7 +190,7 @@ function Filters({ filters, options, onChange, onReset }) {
   );
 }
 
-function DataTable({ rows }) {
+function DataTable({ rows, columns }) {
   const columnClasses = {};
 
   return (
@@ -191,7 +198,7 @@ function DataTable({ rows }) {
       <table className="min-w-full text-center text-[0.7rem] sm:text-[0.8rem]">
         <thead className="sticky top-0 z-10 bg-indigo-600/90 text-[0.7rem] sm:text-[0.8rem] uppercase tracking-wide text-slate-50 border-b border-indigo-400 shadow-sm">
           <tr>
-            {TABLE_COLUMNS.map((col) => (
+            {columns.map((col) => (
               <th
                 key={col}
                 className={`px-2 py-1.5 font-semibold border-r border-indigo-500/70 last:border-r-0 first:rounded-tl-xl last:rounded-tr-xl whitespace-nowrap ${columnClasses[col] || ''}`}
@@ -207,7 +214,7 @@ function DataTable({ rows }) {
               key={idx}
               className={idx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-900'}
             >
-              {TABLE_COLUMNS.map((col) => {
+              {columns.map((col) => {
                 const value = row[col];
                 let colorClass = '';
 
@@ -243,7 +250,7 @@ function DataTable({ rows }) {
           {!rows.length && (
             <tr>
               <td
-                colSpan={TABLE_COLUMNS.length}
+                colSpan={columns.length}
                 className="px-3 py-4 text-center text-xs text-slate-400"
               >
                 No rows to display.
@@ -260,6 +267,9 @@ export default function App() {
   const searchParams = new URLSearchParams(window.location.search);
   const devFull = searchParams.get('full') === '1';
   const devReport = searchParams.get('report') === '1';
+  const tableColumns = devFull
+    ? [...BASE_TABLE_COLUMNS, ...FULL_MODE_EXTRA_COLUMNS]
+    : BASE_TABLE_COLUMNS;
 
   const [filters, setFilters] = useState({
     region: '',
@@ -273,6 +283,7 @@ export default function App() {
     starFilter: '',
     calendarFilter: '',
     uatFilter: '',
+    outcomeFilter: '',
     lot: '',
   });
   const [options, setOptions] = useState({
@@ -302,6 +313,7 @@ export default function App() {
       starFilter: '',
       calendarFilter: '',
       uatFilter: '',
+      outcomeFilter: '',
       lot: '',
     });
   };
@@ -323,13 +335,14 @@ export default function App() {
     if (filters.starFilter) params.set('star', filters.starFilter);
     if (filters.calendarFilter) params.set('calendar', filters.calendarFilter);
     if (filters.uatFilter) params.set('uat', filters.uatFilter);
+    if (filters.outcomeFilter) params.set('outcome', filters.outcomeFilter);
     if (filters.lot) params.set('lot', filters.lot);
     return params;
   };
 
   const handleDownloadReport = () => {
     const params = buildParams();
-    TABLE_COLUMNS.forEach((column) => {
+    tableColumns.forEach((column) => {
       params.append('column', column);
     });
     const url = `/api/report?${params.toString()}`;
@@ -483,6 +496,20 @@ export default function App() {
               }
             />
           )}
+          {devFull && (
+            <StatCard
+              label="Outcome Status Filled"
+              value={stats ? stats.outcome_status_filled : 'â€“'}
+              accent="text-cyan-400"
+              active={filters.outcomeFilter === 'filled'}
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  outcomeFilter: prev.outcomeFilter === 'filled' ? '' : 'filled',
+                }))
+              }
+            />
+          )}
           <StatCard
             label="S1 vs Scheduled (%)"
             value={stats ? stats.s1_vs_scheduled_pct : 'â€“'}
@@ -544,7 +571,7 @@ export default function App() {
         </section> */}
 
         <section>
-          <DataTable rows={rows} />
+          <DataTable rows={rows} columns={tableColumns} />
         </section>
       </main>
     </div>

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
 const { getTableData } = require('./tableData');
 const { buildReportWorkbook } = require('./report');
@@ -27,7 +28,8 @@ function buildFiltersFromRequest(req) {
     approval: req.query.approval || '',
     star: req.query.star || '',
     calendar: req.query.calendar || '',
-     uat: req.query.uat || '',
+    uat: req.query.uat || '',
+    outcome: req.query.outcome || '',
     tile: req.query.tile || '',
     lot: req.query.lot || '',
     final: req.query.final || '',
@@ -100,14 +102,27 @@ app.get('/api/health', (req, res) => {
 
 // Serve React build (client/dist) for all non-API routes
 const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
-app.use(express.static(clientBuildPath));
+const hasClientBuild = fs.existsSync(path.join(clientBuildPath, 'index.html'));
 
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
-});
+if (hasClientBuild) {
+  app.use(express.static(clientBuildPath));
+
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.status(503).send(
+      'Client build not found. Run the Vite dev server with "npm run client" or build the frontend with "npm --workspace client run build".'
+    );
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Monitoring Phase-2 API listening on http://localhost:${PORT}`);
