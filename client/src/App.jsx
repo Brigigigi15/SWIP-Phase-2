@@ -209,44 +209,50 @@ function DataTable({ rows, columns }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => (
-            <tr
-              key={idx}
-              className={idx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-900'}
-            >
-              {columns.map((col) => {
-                const value = row[col];
-                let colorClass = '';
+          {rows.map((row, idx) => {
+            const rowKey = columns
+              .map((col) => `${col}:${String(row[col] ?? '')}`)
+              .join('||');
 
-                if (col === 'Calendar Status') {
-                  const v = String(value || '').trim().toLowerCase();
-                  if (v === 'sent') {
-                    colorClass = 'text-emerald-400';
-                  } else if (v) {
-                    colorClass = 'text-rose-400';
-                  }
-                } else if (col === 'Approval (Accepted / Decline)') {
-                  const v = String(value || '').trim().toLowerCase();
-                  if (v.includes('accept')) {
-                    colorClass = 'text-emerald-400';
-                  } else if (v.includes('declin')) {
-                    colorClass = 'text-rose-400';
-                  } else {
-                    colorClass = 'text-amber-300';
-                  }
-                }
+            return (
+              <tr
+                key={rowKey}
+                className={idx % 2 === 0 ? 'bg-slate-800' : 'bg-slate-900'}
+              >
+                {columns.map((col) => {
+                  const value = row[col];
+                  let colorClass = '';
 
-                return (
-                  <td
-                    key={col}
-                    className={`px-2 py-1 align-top text-[0.8rem] leading-tight ${columnClasses[col] || ''} whitespace-nowrap ${colorClass}`}
-                  >
-                    {value}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+                  if (col === 'Calendar Status') {
+                    const v = String(value || '').trim().toLowerCase();
+                    if (v === 'sent') {
+                      colorClass = 'text-emerald-400';
+                    } else if (v) {
+                      colorClass = 'text-rose-400';
+                    }
+                  } else if (col === 'Approval (Accepted / Decline)') {
+                    const v = String(value || '').trim().toLowerCase();
+                    if (v.includes('accept')) {
+                      colorClass = 'text-emerald-400';
+                    } else if (v.includes('declin')) {
+                      colorClass = 'text-rose-400';
+                    } else {
+                      colorClass = 'text-amber-300';
+                    }
+                  }
+
+                  return (
+                    <td
+                      key={col}
+                      className={`px-2 py-1 align-top text-[0.8rem] leading-tight ${columnClasses[col] || ''} whitespace-nowrap ${colorClass}`}
+                    >
+                      {value}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
           {!rows.length && (
             <tr>
               <td
@@ -299,6 +305,21 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [forceRefreshing, setForceRefreshing] = useState(false);
+  const latestDashboardRequestRef = React.useRef(0);
+
+  const applyDashboardResponse = (data) => {
+    setRows(data.rows || []);
+    setOptions({
+      regionOptions: data.regionOptions || [],
+      scheduleOptions: data.scheduleOptions || [],
+      installationOptions: data.installationOptions || [],
+      approvalOptions: data.approvalOptions || [],
+      finalStatusOptions: data.finalStatusOptions || [],
+      validatedOptions: data.validatedOptions || [],
+    });
+    setStats(data.stats || null);
+    setLastUpdated(data.lastUpdated || null);
+  };
 
   const resetFilters = () => {
     setFilters({
@@ -350,22 +371,15 @@ export default function App() {
   };
 
   const handleForceUatRefresh = async () => {
+    const requestId = ++latestDashboardRequestRef.current;
     try {
       setForceRefreshing(true);
       await axios.post('/api/uat/refresh');
       const params = buildParams();
       const res = await axios.get(`/api/dashboard?${params.toString()}`);
-      setRows(res.data.rows || []);
-      setOptions({
-        regionOptions: res.data.regionOptions || [],
-        scheduleOptions: res.data.scheduleOptions || [],
-        installationOptions: res.data.installationOptions || [],
-        approvalOptions: res.data.approvalOptions || [],
-        finalStatusOptions: res.data.finalStatusOptions || [],
-        validatedOptions: res.data.validatedOptions || [],
-      });
-      setStats(res.data.stats || null);
-      setLastUpdated(res.data.lastUpdated || null);
+      if (requestId === latestDashboardRequestRef.current) {
+        applyDashboardResponse(res.data);
+      }
     } catch (err) {
       console.error('Failed to Force Refresh', err);
     } finally {
@@ -375,25 +389,20 @@ export default function App() {
 
   useEffect(() => {
     const fetchData = async () => {
+      const requestId = ++latestDashboardRequestRef.current;
       setLoading(true);
       try {
         const params = buildParams();
         const res = await axios.get(`/api/dashboard?${params.toString()}`);
-        setRows(res.data.rows || []);
-        setOptions({
-          regionOptions: res.data.regionOptions || [],
-          scheduleOptions: res.data.scheduleOptions || [],
-          installationOptions: res.data.installationOptions || [],
-          approvalOptions: res.data.approvalOptions || [],
-          finalStatusOptions: res.data.finalStatusOptions || [],
-          validatedOptions: res.data.validatedOptions || [],
-        });
-        setStats(res.data.stats || null);
-        setLastUpdated(res.data.lastUpdated || null);
+        if (requestId === latestDashboardRequestRef.current) {
+          applyDashboardResponse(res.data);
+        }
       } catch (err) {
         console.error('Failed to load dashboard data', err);
       } finally {
-        setLoading(false);
+        if (requestId === latestDashboardRequestRef.current) {
+          setLoading(false);
+        }
       }
     };
 

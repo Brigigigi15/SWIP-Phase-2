@@ -549,6 +549,28 @@ const SCHEDULE_END_COL = 'Schedule of Delivery/\nInstallation\n(End Date)';
 const OUTCOME_COL = 'Outcome Status \n (to be Accomplished by Supplier)';
 const BLOCKER_COL = 'Blocker \n (to be Accomplished by Supplier)';
 
+function normalizeHeaderText(value) {
+  return String(value || '')
+    .replace(/\uFEFF/g, '')
+    .replace(/\r/g, '\n')
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function findColumnIndex(header, candidates) {
+  const normalizedHeader = header.map((value) => normalizeHeaderText(value));
+  for (const candidate of candidates) {
+    const target = normalizeHeaderText(candidate);
+    const idx = normalizedHeader.indexOf(target);
+    if (idx !== -1) {
+      return idx;
+    }
+  }
+  return -1;
+}
+
 // Load sheet data
 async function loadSheet(spreadsheetId, sheetName) {
   const sheets = createSheetsClient();
@@ -586,7 +608,7 @@ async function loadStarlink() {
   ];
   let approvalIdx = -1;
   for (const name of approvalHeaderCandidates) {
-    const idx = header.indexOf(name);
+    const idx = findColumnIndex(header, [name]);
     if (idx !== -1) {
       approvalIdx = idx;
       break;
@@ -597,12 +619,20 @@ async function loadStarlink() {
   }
 
   const idx = {
-    beis: header.indexOf('BEIS School ID'),
-    status: header.indexOf('Status of Activation'),
-    // Force Approval to read from column T (index 19) of the Starlink sheet.
-    approval: 19
+    beis: findColumnIndex(header, ['BEIS School ID']),
+    status: findColumnIndex(header, ['Status of Activation']),
+    approval: approvalIdx
   };
-  const idxTpLink = header.indexOf('Tp-link PHASE II');
+  const idxTpLink = findColumnIndex(header, ['Tp-link PHASE II']);
+
+  if (idx.beis === -1 || idx.status === -1 || idx.approval === -1) {
+    console.error('Starlink sheet is missing required columns', {
+      beisFound: idx.beis !== -1,
+      statusFound: idx.status !== -1,
+      approvalFound: idx.approval !== -1
+    });
+    return [];
+  }
 
   const normalized = normalizeRows(header, rows);
   const seen = new Map();
@@ -633,30 +663,108 @@ async function loadMain() {
     rows.forEach(r => r.push(''));
   }
 
-  const required = [
-    'Region',
-    'Province',
-    'BEIS School ID',
-    SCHEDULE_COL,
-    SCHEDULE_END_COL,
-    'Start Time',
-    'End Time',
-    OUTCOME_COL,
-    BLOCKER_COL,
-    'Status of Calendar'
-  ];
-  for (const col of required) if (!header.includes(col)) return { header: [], rows: [] };
+  const requiredColumns = {
+    region: ['Region'],
+    province: ['Province'],
+    beis: ['BEIS School ID'],
+    scheduleStart: [
+      SCHEDULE_COL,
+      'Schedule of Delivery/ Installation (Start Date)',
+      'Schedule of Delivery / Installation (Start Date)'
+    ],
+    scheduleEnd: [
+      SCHEDULE_END_COL,
+      'Schedule of Delivery/ Installation (End Date)',
+      'Schedule of Delivery / Installation (End Date)'
+    ],
+    startTime: ['Start Time'],
+    endTime: ['End Time'],
+    outcome: [
+      OUTCOME_COL,
+      'Outcome Status (to be Accomplished by Supplier)'
+    ],
+    blocker: [
+      BLOCKER_COL,
+      'Blocker (to be Accomplished by Supplier)'
+    ],
+    calendar: [
+      'Status of Calendar',
+      'Calendar Status',
+      'Status of Calendar Invite'
+    ]
+  };
+
+  const missing = Object.entries(requiredColumns)
+    .filter(([, candidates]) => findColumnIndex(header, candidates) === -1)
+    .map(([name]) => name);
+
+  if (missing.length) {
+    console.error('Main sheet is missing required columns', {
+      missing,
+      headerPreview: header.slice(0, 30)
+    });
+    return { header: [], rows: [] };
+  }
 
   const normalized = normalizeRows(header, rows);
   return { header, rows: normalized };
 }
 
 function parseDateFlexible(value) {
-  if (!value) return null;
+  if (value == null || value === '') return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+      12
+    );
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const parsed = new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Date(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+        12
+      );
+    }
+  }
+
   const text = String(value).trim();
   if (!text) return null;
+
+  // Parse date-only values manually so they don't shift across timezones.
+  const isoLike = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoLike) {
+    const [, yearText, monthText, dayText] = isoLike;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const parsed = new Date(year, month - 1, day, 12);
+    if (
+      parsed.getFullYear() === year &&
+      parsed.getMonth() === month - 1 &&
+      parsed.getDate() === day
+    ) {
+      return parsed;
+    }
+  }
+
   const tried = Date.parse(text);
-  return !Number.isNaN(tried) ? new Date(tried) : null;
+  if (Number.isNaN(tried)) return null;
+
+  const parsed = new Date(tried);
+  return new Date(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    parsed.getDate(),
+    12
+  );
 }
 
 function formatScheduleDisplay(startRaw, endRaw) {
@@ -691,9 +799,35 @@ function buildFilterOptions(rows) {
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   };
+
+  const scheduleOptions = Array.from(
+    rows.reduce((map, row) => {
+      const label = (row.Schedule || '').toString().trim();
+      if (!label) return map;
+
+      const existing = map.get(label);
+      const sortValue = row._scheduleSort instanceof Date ? row._scheduleSort : null;
+      if (!existing || ((!existing.sortValue && sortValue) || (
+        existing.sortValue &&
+        sortValue &&
+        sortValue < existing.sortValue
+      ))) {
+        map.set(label, { label, sortValue });
+      }
+      return map;
+    }, new Map()).values()
+  )
+    .sort((a, b) => {
+      if (a.sortValue && b.sortValue) return a.sortValue - b.sortValue;
+      if (a.sortValue && !b.sortValue) return -1;
+      if (!a.sortValue && b.sortValue) return 1;
+      return a.label.localeCompare(b.label);
+    })
+    .map((entry) => entry.label);
+
   return {
     regionOptions: setFromField('Region'),
-    scheduleOptions: setFromField('Schedule'),
+    scheduleOptions,
     installationOptions: setFromField('Installation Status'),
     approvalOptions: setFromField('Approval (Accepted / Decline)'),
     finalStatusOptions: setFromField('Final Status'),
@@ -869,18 +1003,35 @@ async function getTableData(filters) {
   const starByBeis = new Map();
   for (const s of starlink) starByBeis.set(s.beis, s);
 
-  const colIndex = (name) => header.indexOf(name);
   const idx = {
-    region: colIndex('Region'),
-    province: colIndex('Province'),
-    beis: colIndex('BEIS School ID'),
-    schedStart: colIndex(SCHEDULE_COL),
-    schedEnd: colIndex(SCHEDULE_END_COL),
-    startTime: colIndex('Start Time'),
-    endTime: colIndex('End Time'),
-    outcome: colIndex(OUTCOME_COL),
-    blocker: colIndex(BLOCKER_COL),
-    statusCalendar: colIndex('Status of Calendar')
+    region: findColumnIndex(header, ['Region']),
+    province: findColumnIndex(header, ['Province']),
+    beis: findColumnIndex(header, ['BEIS School ID']),
+    schedStart: findColumnIndex(header, [
+      SCHEDULE_COL,
+      'Schedule of Delivery/ Installation (Start Date)',
+      'Schedule of Delivery / Installation (Start Date)'
+    ]),
+    schedEnd: findColumnIndex(header, [
+      SCHEDULE_END_COL,
+      'Schedule of Delivery/ Installation (End Date)',
+      'Schedule of Delivery / Installation (End Date)'
+    ]),
+    startTime: findColumnIndex(header, ['Start Time']),
+    endTime: findColumnIndex(header, ['End Time']),
+    outcome: findColumnIndex(header, [
+      OUTCOME_COL,
+      'Outcome Status (to be Accomplished by Supplier)'
+    ]),
+    blocker: findColumnIndex(header, [
+      BLOCKER_COL,
+      'Blocker (to be Accomplished by Supplier)'
+    ]),
+    statusCalendar: findColumnIndex(header, [
+      'Status of Calendar',
+      'Calendar Status',
+      'Status of Calendar Invite'
+    ])
   };
 
   const uatStatusMap = getUatStatusByBeis();
@@ -962,9 +1113,23 @@ async function getTableData(filters) {
     if(allowedRegions) optionSourceRows = mergedRows.filter(r => allowedRegions.has(String(r.Region || '')));
   }
 
-  const {regionOptions,scheduleOptions,installationOptions,approvalOptions,finalStatusOptions,validatedOptions} = buildFilterOptions(optionSourceRows);
+  const filterOptions = buildFilterOptions(optionSourceRows);
+  const scheduleOptionSourceRows = applyFilters(mergedRows, {
+    ...filters,
+    schedule: []
+  });
+  const scheduleOptions = buildFilterOptions(scheduleOptionSourceRows).scheduleOptions;
 
-  return { rows: filteredRows, regionOptions, scheduleOptions, installationOptions, approvalOptions, finalStatusOptions, validatedOptions, stats };
+  return {
+    rows: filteredRows,
+    regionOptions: filterOptions.regionOptions,
+    scheduleOptions,
+    installationOptions: filterOptions.installationOptions,
+    approvalOptions: filterOptions.approvalOptions,
+    finalStatusOptions: filterOptions.finalStatusOptions,
+    validatedOptions: filterOptions.validatedOptions,
+    stats
+  };
 }
 
 module.exports = { getTableData };
